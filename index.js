@@ -21,6 +21,15 @@ app.get('/messages', (req, res) => {
   Message.find({}, (err, messages) => {
     res.send(messages)
   })
+
+  Message.findOne({message: 'badword'}, (err, censored) => {
+    if(censored) {
+      console.log('censored words found', censored);
+      Message.remove({_id: censored.id}, (err) => {
+        console.log('removed censored message')
+      })
+    }
+  })
 })
 
 app.post('/messages', (req, res) => {
@@ -29,6 +38,15 @@ app.post('/messages', (req, res) => {
   message.save((err) => {
     if(err) {
       sendStatus(500)
+    }
+  })
+
+  Message.findOne({message: 'badword'}, (err, censored) => {
+    if(censored) {
+      console.log('censored words found', censored);
+      Message.remove({_id: censored.id}, (err) => {
+        console.log('removed censored message')
+      })
     }
   })
 
