@@ -8,7 +8,9 @@ require('dotenv').config()
 
 app.use(express.static(__dirname))
 app.use(bodyParser.json())
-app.use(bodyParser.urlencoded({extended: false}))
+app.use(bodyParser.urlencoded({ extended: false }))
+
+mongoose.Promise = Promise
 
 const dbUrl = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.bgev7dl.mongodb.net/?retryWrites=true&w=majority`
 
@@ -22,10 +24,10 @@ app.get('/messages', (req, res) => {
     res.send(messages)
   })
 
-  Message.findOne({message: 'badword'}, (err, censored) => {
-    if(censored) {
+  Message.findOne({ message: 'badword' }, (err, censored) => {
+    if (censored) {
       console.log('censored words found', censored);
-      Message.remove({_id: censored.id}, (err) => {
+      Message.remove({ _id: censored.id }, (err) => {
         console.log('removed censored message')
       })
     }
@@ -35,24 +37,29 @@ app.get('/messages', (req, res) => {
 app.post('/messages', (req, res) => {
   let message = new Message(req.body)
 
-  message.save((err) => {
-    if(err) {
-      sendStatus(500)
-    }
+  message.save().then(() => {
+    console.log('saved')
+    return Message.findOne({ message: 'badword' })
   })
+    .then(censored => {
+      if (censored) {
+        console.log('censored words found', censored);
+        Message.remove({ _id: censored.id }, (err) => {
+          console.log('removed censored message')
+        })
+      }
 
-  Message.findOne({message: 'badword'}, (err, censored) => {
-    if(censored) {
-      console.log('censored words found', censored);
-      Message.remove({_id: censored.id}, (err) => {
-        console.log('removed censored message')
-      })
-    }
-  })
+      io.emit('message', req.body)
+      res.sendStatus(200)
+    })
+    .catch((err) => {
+      res.sendStatus(500)
+      console.error(err)
+    })
 
-  io.emit('message', req.body)
-  res.sendStatus(200)
 })
+
+
 
 io.on('connection', (socket) => {
   console.log('use connection');
